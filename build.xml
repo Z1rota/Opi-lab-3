@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Lab3" default="build">
+
+    <property name="src.dir" value="src/main/java"/>
+    <property name="resources.dir" value="src/main/resources"/>
+    <property name="web.dir" value="src/main/webapp"/>
+    <property name="test.dir" value="src/test/java"/>
+    <property name="lib.dir" value="lib"/>
+    <property name="build.dir" value="build"/>
+    <property name="classes.dir" value="${build.dir}/classes"/>
+    <property name="test.classes.dir" value="${build.dir}/test-classes"/>
+    <property name="dist.dir" value="dist"/>
+    <property name="war.name" value="JSFGavno.war"/>
+    <property name="scp.host" value="se.ifmo.ru"/>
+    <property name="scp.user" value="s467507"/>
+    <property name="scp.password" value="SABs>6648"/>
+    <property name="scp.port" value="2222"/>
+    <property name="scp.remote.dir" value="opi/"/>
+
+    <path id="classpath">
+        <fileset dir="${lib.dir}" includes="**/*.jar"/>
+    </path>
+
+    <!-- таргет 1 clean-->
+    <target name="clean" description="Удаление скомпилированных классов и временных файлов">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+
+    <!-- таргет 2 compile -->
+    <target name="compile" description="Компиляция исходных кодов проекта">
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" encoding="UTF-8">
+            <classpath refid="classpath"/>
+        </javac>
+        <copy todir="${classes.dir}" failonerror="false">
+            <fileset dir="${resources.dir}"/>
+        </copy>
+    </target>
+
+
+    <!-- таргет 3 native2ascii -->
+    <target name="native2ascii" description="Преобразование native2ascii для файлов локализации">
+        <mkdir dir="${classes.dir}"/>
+        <native2ascii src="${resources.dir}" dest="${classes.dir}" includes="**/*.properties"/>
+    </target>
+
+    <!-- таргет 4 music -->
+    <target name="music" depends="build" description="Воспроизведение музыки по завершению сборки">
+        <sound>
+            <success source="success.wav"/>
+        </sound>
+    </target>
+
+
+
+    <!-- таргет 5 build -->
+    <target name="build" depends="compile, native2ascii" description="Компиляция и упаковка в WAR">
+        <mkdir dir="${dist.dir}"/>
+        <war destfile="${dist.dir}/${war.name}" webxml="${web.dir}/WEB-INF/web.xml">
+            <fileset dir="${web.dir}">
+            <include name="**/*.xhtml"/>
+            </fileset>
+            <classes dir="${classes.dir}"/>
+            <lib dir="${lib.dir}"/>
+        </war>
+        <echo message="WAR file created in ${dist.dir}/${war.name}"/>
+    </target>
+
+
+    <!-- таргет 6 test -->
+    <target name="test" depends="build" description="Запуск junit-тестов проекта">
+        <mkdir dir="${test.classes.dir}"/>
+        <javac srcdir="${test.dir}" destdir="${test.classes.dir}" includeantruntime="false" encoding="UTF-8">
+            <classpath>
+                <path refid="classpath"/>
+                <pathelement location="${classes.dir}"/>
+            </classpath>
+        </javac>
+        <junit printsummary="yes" haltonfailure="no" showoutput="yes">
+            <formatter type="xml"/>
+            <classpath>
+                <path refid="classpath"/>
+                <pathelement location="${classes.dir}"/>
+                <pathelement location="${test.classes.dir}"/>
+            </classpath>
+            <batchtest fork="yes" todir="${build.dir}">
+                <fileset dir="${test.classes.dir}">
+                    <include name="**/*Test.class"/>
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+    <!-- Таргет 7 xml -->
+    <target name="xml" description="Валидация всех xml-файлов в проекте">
+        <xmlvalidate failonerror="yes" warn="yes" lenient="yes" >
+            <fileset dir="." includes="**/*.xml" excludes="${build.dir}/**, ${dist.dir}/**, ${lib.dir}/**, .idea/**, .vscode/**"/>
+        </xmlvalidate>
+        <echo message="XML validation ended."/>
+    </target>
+
+    <!-- таргет 8 scp -->
+    <target name="scp" depends="build" description="Отправка WAR на гелиос">
+        <scp file="${dist.dir}/${war.name}"
+             todir="${scp.user}:${scp.password}@${scp.host}:${scp.remote.dir}"
+             port="${scp.port}"
+             trust="true"/>
+        <echo message="file deportated to ${scp.host}"/>
+    </target>
+
+    <!-- таргет 9 doc -->
+    <target name="doc" depends="build" description="Генерация javadoc и добавление хэшей в манифест">
+        <property name="javadoc.dir" value="${dist.dir}/javadoc"/>
+        <mkdir dir="${javadoc.dir}"/>
+
+        <javadoc sourcepath="${src.dir}" destdir="${javadoc.dir}" encoding="UTF-8">
+            <classpath refid="classpath"/>
+        </javadoc>
+
+        <checksum totalproperty="project.md5" algorithm="MD5">
+            <fileset dir="${src.dir}"/>
+        </checksum>
+        <checksum totalproperty="project.sha1" algorithm="SHA-1">
+            <fileset dir="${src.dir}"/>
+        </checksum>
+            <delete>
+                <fileset dir="${src.dir}">
+                    <include name="**/*.MD5"/>
+                    <include name="**/*.SHA-1"/>
+                </fileset>
+            </delete>
+
+        <manifest file="${build.dir}/MANIFEST.MF">
+            <attribute name="Project-MD5" value="${project.md5}"/>
+            <attribute name="Project-SHA1" value="${project.sha1}"/>
+        </manifest>
+
+        <war destfile="${dist.dir}/${war.name}" update="true" manifest="${build.dir}/MANIFEST.MF">
+            <zipfileset dir="${javadoc.dir}" prefix="javadoc"/>
+        </war>
+        <echo message="JavaDoc generated"/>
+    </target>
+
+
+
+</project>
