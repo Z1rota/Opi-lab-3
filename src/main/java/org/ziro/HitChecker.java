@@ -12,15 +12,15 @@ public class HitChecker {
             }
         }
 
-
+        // яйца
         if (x <= 0 && y >= 0) {
 
             if (y <= x + r) {
                 return true;
             }
         }
-
-        if (x >= -r && x <= 0 && y >= -r / 2.0 && y <= 0) {
+        // яйца 2
+        if (x >= -r && x <= 0 && y >= -r / 2.0 && y <= 0)  {
             return true;
         }
 

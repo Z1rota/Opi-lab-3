@@ -1,21 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="Lab3" default="build">
 
-    <property name="src.dir" value="src/main/java"/>
-    <property name="resources.dir" value="src/main/resources"/>
-    <property name="web.dir" value="src/main/webapp"/>
-    <property name="test.dir" value="src/test/java"/>
-    <property name="lib.dir" value="lib"/>
-    <property name="build.dir" value="build"/>
-    <property name="classes.dir" value="${build.dir}/classes"/>
-    <property name="test.classes.dir" value="${build.dir}/test-classes"/>
-    <property name="dist.dir" value="dist"/>
-    <property name="war.name" value="JSFGavno.war"/>
-    <property name="scp.host" value="se.ifmo.ru"/>
-    <property name="scp.user" value="s467507"/>
-    <property name="scp.password" value="SABs>6648"/>
-    <property name="scp.port" value="2222"/>
-    <property name="scp.remote.dir" value="opi/"/>
+    <property file="build.properties"/>
+    
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+        <classpath>
+            <pathelement location="${lib.dir}/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
 
     <path id="classpath">
         <fileset dir="${lib.dir}" includes="**/*.jar"/>
@@ -52,14 +44,12 @@
         </sound>
     </target>
 
-
-
     <!-- таргет 5 build -->
     <target name="build" depends="compile, native2ascii" description="Компиляция и упаковка в WAR">
         <mkdir dir="${dist.dir}"/>
         <war destfile="${dist.dir}/${war.name}" webxml="${web.dir}/WEB-INF/web.xml">
             <fileset dir="${web.dir}">
-            <include name="**/*.xhtml"/>
+                <include name="**/*.xhtml"/>
             </fileset>
             <classes dir="${classes.dir}"/>
             <lib dir="${lib.dir}"/>
@@ -91,6 +81,7 @@
             </batchtest>
         </junit>
     </target>
+
     <!-- Таргет 7 xml -->
     <target name="xml" description="Валидация всех xml-файлов в проекте">
         <xmlvalidate failonerror="yes" warn="yes" lenient="yes" >
@@ -123,12 +114,12 @@
         <checksum totalproperty="project.sha1" algorithm="SHA-1">
             <fileset dir="${src.dir}"/>
         </checksum>
-            <delete>
-                <fileset dir="${src.dir}">
-                    <include name="**/*.MD5"/>
-                    <include name="**/*.SHA-1"/>
-                </fileset>
-            </delete>
+        <delete>
+            <fileset dir="${src.dir}">
+                <include name="**/*.MD5"/>
+                <include name="**/*.SHA-1"/>
+            </fileset>
+        </delete>
 
         <manifest file="${build.dir}/MANIFEST.MF">
             <attribute name="Project-MD5" value="${project.md5}"/>
@@ -141,6 +132,182 @@
         <echo message="JavaDoc generated"/>
     </target>
 
+    <!-- таргет 10 report -->
+    <target name="report" depends="test" description="Добавление XML отчета тестов в Git">
+        <exec executable="git" failonerror="true">
+            <arg value="add"/>
+            <arg value="${build.dir}/TEST-org.ziro.HitCheckerTest.xml"/>
+        </exec>
+        <exec executable="git" failonerror="true">
+            <arg value="commit"/>
+            <arg value="-m"/>
+            <arg value="Большой отчет большие тесты"/>
+        </exec>
+        <echo message="reports pushed to github successful"/>
+    </target>
 
+    <!-- таргет 11 alt -->
+    <target name="alt" description="Создание альтернативной версии программы">
+        <property name="alt.base" value="${build.dir}/alt"/>
+        <property name="alt.src" value="${alt.base}/src"/>
+        <property name="alt.web" value="${alt.base}/web"/>
+        <property name="alt.test" value="${alt.base}/test"/>
+        <property name="alt.classes" value="${alt.base}/classes"/>
+
+        <mkdir dir="${alt.base}"/>
+
+        <copy todir="${alt.src}"><fileset dir="${src.dir}"/></copy>
+        <copy todir="${alt.web}"><fileset dir="${web.dir}"/></copy>
+        <copy todir="${alt.test}"><fileset dir="${test.dir}"/></copy>
+
+        <move file="${alt.src}/org/ziro/HitChecker.java" tofile="${alt.src}/org/ziro/AltHitChecker.java" failonerror="false"/>
+        <move file="${alt.src}/org/ziro/beans/CollectionBean.java" tofile="${alt.src}/org/ziro/beans/AltCollectionBean.java" failonerror="false"/>
+        <move file="${alt.src}/org/ziro/beans/DataBean.java" tofile="${alt.src}/org/ziro/beans/AltDataBean.java" failonerror="false"/>
+        <move file="${alt.src}/org/ziro/Point.java" tofile="${alt.src}/org/ziro/AltPoint.java" failonerror="false"/>
+        <move file="${alt.test}/org/ziro/HitCheckerTest.java" tofile="${alt.test}/org/ziro/AltHitCheckerTest.java" failonerror="false"/>
+
+        <replace dir="${alt.base}" replacefilterfile="alt-params.properties">
+            <include name="**/*.java"/>
+            <include name="**/*.xhtml"/>
+            <include name="**/*.xml"/>
+        </replace>
+
+        <antcall target="build">
+            <param name="src.dir" value="${alt.src}"/>
+            <param name="web.dir" value="${alt.web}"/>
+            <param name="classes.dir" value="${alt.classes}"/>
+            <param name="war.name" value="AltApp.war"/>
+        </antcall>
+
+        <echo message="alt(ushka) project created"/>
+    </target>
+
+    <!-- таргет 12 env -->
+    <target name="env" description="Запуск программы в особом режиме">
+        <exec executable="rundll32" osfamily="windows">
+            <arg line="url.dll,FileProtocolHandler https://yandex.ru/maps/2/saint-petersburg/search/%D0%9F%D0%B0%D1%80%D0%BA%D0%B8/"/>
+        </exec>
+        <echo message="touch grass and take shower please" />
+    </target>
+
+    <!-- таргет 13 diff -->
+    <target name="diff" description="Проверка изменений и commit в SVN">
+        <exec executable="svn" outputproperty="svn.status">
+            <arg value="status"/>
+        </exec>
+        <condition property="has.changes">
+            <not>
+                <equals arg1="${svn.status}" arg2=""/>
+            </not>
+        </condition>
+        <if>
+            <isset property="has.changes"/>
+            <then>
+                <exec executable="svn">
+                    <arg line="commit -m 'я ненавижу свн'"/>
+                </exec>
+                <echo message="Изменения успешно закоммичены в SVN."/>
+                <echo message="Статус: ${svn.status}"/>
+            </then>
+            <else>
+                <echo message="Рабочая копия чиста. Нет изменений для коммита."/>
+            </else>
+        </if>
+    </target>
+
+    <!-- таргет 14 history -->
+    <target name="history" description="Поиск последней компилируемой ревизии">
+        <exec executable="svn" outputproperty="raw.hist.rev">
+            <arg line="info --show-item revision"/>
+        </exec>
+
+        <propertyregex property="hist.rev" input="${raw.hist.rev}" regexp="\D" replace="" global="true" defaultValue="${raw.hist.rev}"/>
+
+        <var name="working.rev" value="-1"/>
+        <var name="found" value="false"/>
+
+        <if>
+            <matches string="${hist.rev}" pattern="^([2-9]|[1-9][0-9]+)$"/>
+            <then>
+                <for param="i" begin="${hist.rev}" end="1" step="-1">
+                    <sequential>
+                        <if>
+                            <equals arg1="${found}" arg2="false"/>
+                            <then>
+                                <echo message="check rev @{i} to build"/>
+                                <exec executable="svn"><arg line="update -r @{i}"/></exec>
+
+                                <trycatch>
+                                    <try>
+                                        <antcall target="clean"/>
+                                        <antcall target="compile"/>
+                                        <var name="working.rev" value="@{i}"/>
+                                        <var name="found" value="true"/>
+                                        <echo message="rev @{i} compiled"/>
+                                    </try>
+                                    <catch>
+                                        <echo message="rev @{i} doesn't compile"/>
+                                    </catch>
+                                </trycatch>
+                            </then>
+                        </if>
+                    </sequential>
+                </for>
+
+                <if>
+                    <equals arg1="${found}" arg2="true"/>
+                    <then>
+                        <math result="broken.rev" operand1="${working.rev}" operation="+" operand2="1" datatype="int"/>
+                        <echo message="generate file for ${broken.rev}..."/>
+                        <exec executable="svn" output="diff-rev-${broken.rev}.txt">
+                            <arg line="diff -c ${broken.rev}"/>
+                        </exec>
+                        <echo message="file diff-rev-${broken.rev}.txt generated"/>
+                    </then>
+                    <else>
+                        <echo message="there is no working revs"/>
+                    </else>
+                </if>
+            </then>
+            <else>
+                <echo message="you need 2 or more revs"/>
+            </else>
+        </if>
+        <exec executable="svn"><arg line="update"/></exec>
+    </target>
+
+    <!-- таргет 15 team -->
+    <target name="team" description="Сборка и упаковка 3 предыдущих ревизий">
+        <exec executable="svn" outputproperty="raw.head.rev">
+            <arg line="info --show-item revision"/>
+        </exec>
+
+        <propertyregex property="svn.head.rev" input="${raw.head.rev}" regexp="\D" replace="" global="true" defaultValue="${raw.head.rev}"/>
+
+        <math result="rev1" operand1="${svn.head.rev}" operation="-" operand2="1" datatype="int"/>
+        <math result="rev2" operand1="${svn.head.rev}" operation="-" operand2="2" datatype="int"/>
+        <math result="rev3" operand1="${svn.head.rev}" operation="-" operand2="3" datatype="int"/>
+
+        <property name="team.zip.dir" value="${build.dir}/team-builds"/>
+        <mkdir dir="${team.zip.dir}"/>
+
+        <for list="${rev1},${rev2},${rev3}" param="rev">
+            <sequential>
+                <if>
+                    <matches string="@{rev}" pattern="^[1-9][0-9]*$"/>
+                    <then>
+                        <echo message="building rev @{rev}"/>
+                        <exec executable="svn"><arg line="update -r @{rev}"/></exec>
+                        <antcall target="clean"/>
+                        <antcall target="build"/>
+                        <copy file="${dist.dir}/${war.name}" tofile="${team.zip.dir}/app-rev-@{rev}.war"/>
+                    </then>
+                </if>
+            </sequential>
+        </for>
+        <zip destfile="${dist.dir}/team-archive.zip" basedir="${team.zip.dir}"/>
+        <echo message="archive created at ${dist.dir}/team-archive.zip"/>
+        <exec executable="svn"><arg line="update"/></exec>
+    </target>
 
 </project>
